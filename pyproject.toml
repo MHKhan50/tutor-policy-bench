@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tutor-policy-bench"
+version = "0.1.0"
+description = "A reproducible benchmark for longitudinal agentic tutoring policies"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [{name = "Muzammal Hussain"}]
+dependencies = []
+
+[project.scripts]
+tutor-policy-bench = "tutor_policy_bench.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
