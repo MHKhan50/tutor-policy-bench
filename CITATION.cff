@@ -6,3 +6,6 @@ date-released: 2026-11-12
 authors:
   - family-names: Hussain
     given-names: Muzammal
+    orcid: "https://orcid.org/0009-0001-2570-5686"
+license: MIT
+repository-code: "https://github.com/MHKhan50/tutor-policy-bench"

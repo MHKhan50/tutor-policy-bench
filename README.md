@@ -1,104 +1,87 @@
-# TutorPolicyBench v0.1.0
+# TutorPolicyBench
 
-**Longitudinal Evaluation of Agentic Tutoring Policies under Delayed Retention, Hint Budgets, and Learner-Model Mismatch**
+A small simulator for one question: when a tutor (human or AI) has a fixed number of moves, which move should it make next? Give a hint, show a worked example, ask a retrieval question, go back to a prerequisite, or just give the answer?
 
-TutorPolicyBench is a lightweight, reproducible benchmark for evaluating *tutoring action-selection policies*, rather than merely scoring the correctness or fluency of generated explanations. It simulates multi-session mathematics learning and compares fixed and adaptive policies under controlled learner profiles, observation noise, retention decay, and interaction-cost budgets.
+Most tutoring evaluations score a single reply. This one follows a simulated learner across three sessions with forgetting in between, and scores what they can still do at the end without help.
 
-The benchmark runs on Python 3.9+ with no mandatory third-party runtime dependencies. An optional Ollama adapter allows a local language model to select structured tutoring actions; deterministic baselines remain the reproducible reference.
+Everything here is synthetic. The learners, their mastery and their answers come from the assumptions in `src/tutor_policy_bench/simulator.py`. The results say what those assumptions imply, not how real students learn.
 
-## Scope and limitations
+## What I found (v0.1.0, 30 seeds)
 
-- The default benchmark uses **synthetic learners and synthetic skill trajectories**.
-- The simulator is a transparent experimental model, not a validated psychological or educational model.
-- An optional calibration utility reads the public ASSISTments 2009–2010 Skill Builder CSV and produces aggregate skill-level descriptive statistics. It does not estimate causal effects of hints or prove real learning gains.
-- No raw student dataset is bundled. Do not commit raw student-level data to GitHub.
-- This project does not establish that an AI tutor improves real students' learning. Human-subject evaluation and educator review would be required for that claim.
+30 seeds × 3 learner profiles × 3 noise levels × 3 mismatch levels = 810 matched learners per policy. Every policy spends the same budget of 24 cost units and sees the same random draws, so differences come from the moves it picks.
 
-## Research questions
+| Policy | Correct during sessions | Correct on delayed test | Mastery gain |
+|---|---|---|---|
+| direct_answer | 1.000 | 0.425 | −0.022 |
+| fixed_hint | 0.679 | 0.667 | 0.219 |
+| bkt_threshold | 0.674 | 0.663 | 0.214 |
+| multi_agent | 0.647 | 0.671 | 0.224 |
+| random | 0.716 | 0.630 | 0.183 |
 
-- **RQ1:** Under equal interaction-cost budgets, do adaptive tutoring policies produce higher delayed simulated retention than direct-answer and fixed-hint baselines?
-- **RQ2:** How sensitive are policy rankings to observation noise and mismatch between the learner model used by the tutor and the simulated learner?
-- **RQ3:** What trade-offs arise between immediate exercise success, delayed transfer, hint usage, answer revelation, and interaction cost?
+- Giving the answer every time gets every question right during sessions and the lowest delayed score: 24.6 points below the multi-agent policy (paired 95% interval 23.8 to 25.4). This is built into the simulator, which assumes revealing an answer teaches little, so treat it as a sanity check, not a discovery.
+- The adaptive policies did not clearly beat a simple hint rule. Multi-agent minus fixed hint on the delayed test was +0.4 points (−0.1 to +0.9). For novice learners the fixed hint rule was the best of the three.
+- Noise and model mismatch hardly moved the ranking. With 25% of answers misread, the three adaptive and hint policies stayed within about 1 point of each other.
+- Turning forgetting off raised every delayed score by 8 to 11 points and put `bkt_threshold` first (0.766 against 0.752 for multi-agent). The ranking at the top depends on the decay assumption.
 
-## Hypotheses
-
-- **H1:** The adaptive multi-agent policy will improve delayed simulated retention relative to direct-answer and fixed-hint baselines under the simulator's stated transition assumptions.
-- **H2:** Increasing observation noise and learner-model mismatch will reduce the advantage of adaptive policies.
-- **H3:** Policies that reveal answers more often may increase immediate task completion while producing lower delayed retention in the simulator.
-
-These are falsifiable hypotheses, not reported findings.
+The intervals treat the 810 matched cells as independent even though cells share seeds, so they are descriptive. `outputs/paired_differences.csv` has every comparison.
 
 ## Policies
 
-1. `direct_answer`: reveals the answer immediately; low-learning reference baseline.
-2. `fixed_hint`: follows a fixed hint/worked-example sequence independent of estimated mastery.
-3. `bkt_threshold`: uses a simple Beta-Binomial mastery estimate to choose between hint, worked example, and retrieval practice.
-4. `multi_agent`: diagnostic, misconception, pedagogical-planning, and progress-check roles coordinate a bounded action choice.
-5. `ollama`: optional local model selects one structured action per turn; the simulator validates the action and enforces budgets.
+- `direct_answer`: always reveals the answer.
+- `fixed_hint`: a hint, or a worked example when the last answer was wrong and at least two of the last five were. Ignores the mastery estimate.
+- `bkt_threshold`: Beta-Binomial mastery estimate with thresholds at 0.35 and 0.70.
+- `multi_agent`: four rule-based roles (diagnosis, misconception check, planner, budget check). No language model is involved.
+- `random`: uniform over the five actions.
+- `ollama`: optional, a local model picks the action each turn. Not part of the results above.
 
-The rule-based multi-agent policy is a transparent baseline. It is not an LLM-based multi-agent system.
+## The simulator in short
 
-## Setup in Visual Studio Code
+- 3 maths skills, 3 sessions of 8 turns, budget of 24. Worked examples and prerequisite reviews cost 2, everything else 1.
+- Profiles differ in starting mastery (0.25, 0.45, 0.65), learning rate and forgetting per session break.
+- Some learners start with a misconception on a skill. It halves learning until a prerequisite review clears it.
+- The tutor sees each answer flipped with probability `noise` and starts with a prior that is too optimistic by `mismatch`.
+- After the last session the learner forgets once more and answers 5 unaided questions per skill.
 
-Open the extracted project folder in VS Code, then open **Terminal → New Terminal**.
+Every number is in one block at the top of `simulator.py`, so you can change it and rerun.
+
+## Run it
+
+Python 3.9 or newer, no other packages.
 
 ```bash
-python3 --version
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install --no-build-isolation -e .
+pip install -e .
 python -m unittest discover -s tests -v
-python -m tutor_policy_bench.cli --seeds 10
+python -m tutor_policy_bench.cli --seeds 30 --policies direct_answer fixed_hint bkt_threshold multi_agent random
+python scripts/paired_analysis.py
 ```
 
-Windows PowerShell activation: `.venv\\Scripts\\Activate.ps1`.
+On Windows, activate with `.venv\Scripts\Activate.ps1`.
 
-## Optional local Ollama evaluation
-
-If Ollama is running locally and a model is already available:
+To let a local model choose the moves (needs Ollama running and the model already pulled):
 
 ```bash
 python -m tutor_policy_bench.cli --seeds 3 --policies ollama --model qwen2.5:3b
 ```
 
-The adapter uses `http://localhost:11434`. No model is downloaded by this project. The default experiment does not require Ollama.
+## Optional ASSISTments statistics
 
-## Optional ASSISTments calibration
-
-1. Download the 2009–2010 **Skill Builder** dataset from the official ASSISTments page linked in `docs/DATA_AND_PROVENANCE.md`.
-2. Place the CSV at `data/raw/skill_builder_data.csv`.
-3. Run:
+`scripts/calibrate_assistments.py` reads the public ASSISTments 2009–2010 Skill Builder CSV and writes per-skill averages (correct rate, hints, attempts, response time). It does not set the simulator's parameters and does not measure the effect of hints. Download link and licence notes are in `docs/DATA_AND_PROVENANCE.md`; keep the raw file out of git.
 
 ```bash
-python scripts/calibrate_assistments.py \
-  --input data/raw/skill_builder_data.csv \
-  --output data/derived/assistments_skill_priors.csv
+python scripts/calibrate_assistments.py --input data/raw/skill_builder_data.csv --output data/derived/assistments_skill_priors.csv
 ```
 
-The script uses aggregate skill-level correctness, hints, attempts, and response-time statistics. It does not export student identifiers or free-text answers. The 2009–2010 dataset is old and should not be treated as representative of present-day learners or Pakistani learners.
+## Limits
 
-## Outputs
+- The simulator is not a validated model of learning. The effect of each action is my assumption.
+- The multi-agent policy is rules, not an LLM system.
+- Nothing here shows that any tutor helps real students. That needs a study with learners and teachers.
+- This is a general benchmark, not mapped to the Pakistani curriculum or to Urdu or Roman Urdu material.
 
-The experiment runner writes `outputs/episode_results.csv`, `outputs/policy_summary.csv`, and `outputs/summary.json`. The summary includes mean, standard deviation, and exploratory 95% normal-approximation intervals. Retain seed-level episode rows for paired comparisons. Do not report synthetic results as field evidence.
+More detail in `docs/`.
 
-## Paper-grade protocol
+## Citation
 
-- Use at least 30 seeds for main simulation experiments.
-- Pre-register policy parameters and separate development seeds from held-out evaluation seeds.
-- Run ablations: disable misconception detection, disable delayed retention, and remove observation noise.
-- Report paired seed-level differences and confidence intervals.
-- Calibrate simulator parameters against public data only as descriptive priors; test sensitivity to alternative parameter settings.
-- Seek educator and student review before making claims about real tutoring effectiveness.
-
-## Repository structure
-
-- `src/tutor_policy_bench/`: learner simulator, policy baselines, multi-agent roles, metrics, experiment runner, optional Ollama adapter
-- `tests/`: unit and integration tests
-- `docs/`: research assessment, methodology, protocol, data dictionary, ethics, limitations, sources
-- `scripts/`: optional ASSISTments calibration utility
-- `data/`: empty raw/derived folders; no real student data included
-
-## Suggested repository name
-`tutor-policy-bench`
-
-This v0.1.0 release is a general benchmark, not a Pakistan-specific curriculum or language evaluation. A future local study would require curriculum mapping and educator-reviewed Urdu/Roman Urdu materials.
+See `CITATION.cff`. Code is MIT licensed.
