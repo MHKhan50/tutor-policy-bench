@@ -1,0 +1,32 @@
+{
+  "benchmark": "TutorPolicyBench",
+  "version": "0.1.0",
+  "seeds": 30,
+  "episodes": 4050,
+  "profiles": [
+    "novice",
+    "intermediate",
+    "advanced"
+  ],
+  "policies": [
+    "direct_answer",
+    "fixed_hint",
+    "bkt_threshold",
+    "multi_agent",
+    "random"
+  ],
+  "noise_levels": [
+    0.0,
+    0.1,
+    0.25
+  ],
+  "mismatch_levels": [
+    0.0,
+    0.15,
+    0.3
+  ],
+  "python": "3.9.6 (default, Oct 19 2026, 19:18:13) \n[Clang 21.0.0 (clang-2100.4.1.1)]",
+  "platform": "macOS-27.2-arm64-arm-64bit",
+  "data_status": "synthetic_only_unless_separate_ASSISTments_calibration_is_run",
+  "interval_note": "descriptive normal approximation; use paired seed-level analysis for research"
+}
