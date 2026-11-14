@@ -1,5 +1,7 @@
 # TutorPolicyBench
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24167479.svg)](https://doi.org/10.5281/zenodo.24167479)
+
 A small simulator for one question: when a tutor (human or AI) has a fixed number of moves, which move should it make next? Give a hint, show a worked example, ask a retrieval question, go back to a prerequisite, or just give the answer?
 
 Most tutoring evaluations score a single reply. This one follows a simulated learner across three sessions with forgetting in between, and scores what they can still do at the end without help.
